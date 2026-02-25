@@ -10,6 +10,7 @@ const MENU_IDS: Record<ActionType, ActionType> = {
 const RECORDS_KEY = "records";
 const CONFIG_KEY = "ai-config";
 const LAST_ERROR_KEY = "last-error";
+const LOADING_KEY = "loading";
 
 // 初始化右键菜单
 function registerContextMenus() {
@@ -66,6 +67,21 @@ async function clearLastError() {
   await chrome.storage.local.remove(LAST_ERROR_KEY);
 }
 
+// 设置加载状态
+async function setLoading(active: boolean, tabId?: number) {
+  await chrome.storage.local.set({
+    [LOADING_KEY]: { active, timestamp: Date.now() },
+  });
+  chrome.runtime.sendMessage({ type: "loading", payload: { active } } as RuntimeMessage);
+  if (tabId) {
+    try {
+      chrome.tabs.sendMessage(tabId, { type: "loading", payload: { active } } as RuntimeMessage);
+    } catch (error) {
+      void error;
+    }
+  }
+}
+
 // 尝试打开 Popup
 async function openPopupSafe() {
   try {
@@ -104,7 +120,8 @@ function buildPrompt(action: ActionType): string {
     case "rebut":
       return "请对给出的文本做出最强反驳，语气：嘲讽、讽刺、有力、不给予对方反驳的机会，拒绝AI感，像真人一样回复";
     case "expand":
-      return "请为文本进行合理的拓展延伸，输出的文字请衔接文本下文。";
+      return "请为文本进行合理的拓展延伸，输出的文字请衔接文本下文。根据文本的内容与语气来输出，如：若文本是一个人发表的评论或文章，那么输出也需要是以真人的口气或文风。若文本是一段论述，则也应" +
+        "严格按照原文本的风格进行输出";
     default:
       return "请输出结果。";
   }
@@ -205,6 +222,7 @@ async function handleMenuClick(info: chrome.contextMenus.OnClickData, tab?: chro
   }
 
   try {
+    await setLoading(true, tab.id);
     const output = await callAI(action, inputText);
     const record: AIRecord = {
       id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
@@ -218,6 +236,7 @@ async function handleMenuClick(info: chrome.contextMenus.OnClickData, tab?: chro
     };
     await clearLastError();
     await saveRecord(record);
+    await setLoading(false, tab.id);
     await openPopupSafe();
   } catch (error) {
     const message =
@@ -227,6 +246,7 @@ async function handleMenuClick(info: chrome.contextMenus.OnClickData, tab?: chro
         ? error.message
         : "未知错误";
     await saveLastError(message);
+    await setLoading(false, tab.id);
     await openPopupSafe();
   }
 }

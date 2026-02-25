@@ -28,6 +28,7 @@ export interface RuntimeMessage {
     | "selection-result"
     | "open-popup"
     | "records-updated"
-    | "error";
+    | "error"
+    | "loading";
   payload?: unknown;
 }

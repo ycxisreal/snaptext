@@ -244,13 +244,13 @@ dist/（构建产物）
 目录职责说明
 
 src/background/
-* service worker 入口，负责注册右键菜单、处理菜单点击、调用 AI API、写入 storage、通知 popup 刷新
+* service worker 入口，负责注册右键菜单、处理菜单点击、调用 AI API、写入 storage、通知 popup 刷新，并向页面发送加载状态
 
 src/content/
-* 内容脚本入口，负责读取选中文本、注入悬浮按钮（Shadow DOM、悬浮样式）、向后台发送“打开 popup”请求
+* 内容脚本入口，负责读取选中文本、注入悬浮按钮（Shadow DOM、悬浮样式）、接收加载状态并显示页面指示、向后台发送“打开 popup”请求
 
 src/popup/
-* 扩展弹窗页面（Vue3），负责读取记录、展示列表、复制/删除/清空、接收刷新与错误消息
+* 扩展弹窗页面（Vue3），负责读取记录、展示单卡片/弹窗列表、复制/删除/清空、接收刷新/错误/加载状态
 
 src/options/
 * 设置页（Vue3），负责维护 AI 配置（BaseURL、Key、Model）
