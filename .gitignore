@@ -40,6 +40,6 @@ __screenshots__/
 # Electron
 release/
 dist-electron/
-/doc/
+doc/
 progression.json
 AGENTS.md

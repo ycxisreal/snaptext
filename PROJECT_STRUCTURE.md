@@ -233,9 +233,52 @@ public/
 manifest.json
 icons/
 
+dist/（构建产物）
+* background.js
+* content.js
+* popup.html / popup.js
+* options.html / options.js
+* assets/
+* chunks/
+
+目录职责说明
+
+src/background/
+* service worker 入口，负责注册右键菜单、处理菜单点击、调用 AI API、写入 storage、通知 popup 刷新
+
+src/content/
+* 内容脚本入口，负责读取选中文本、注入悬浮按钮、向后台发送“打开 popup”请求
+
+src/popup/
+* 扩展弹窗页面（Vue3），负责读取记录、展示列表、复制/删除/清空、接收刷新与错误消息
+
+src/options/
+* 设置页（Vue3），负责维护 AI 配置（BaseURL、Key、Model）
+
+src/shared/
+* 公共类型与消息结构定义
+
+public/
+* 静态资源与 manifest.json，构建时复制到 dist
+
+public/icons/
+* 扩展图标资源（需手动补齐）
+
+dist/
+* 打包输出目录，用于加载已解压扩展
+
 ————————————
 
-九、扩展约束
+九、需要补全的资源文件清单（手动添加）
+
+图标资源（manifest.json 引用）
+* public/icons/icon-16.png（16x16）
+* public/icons/icon-32.png（32x32）
+* public/icons/icon-128.png（128x128）
+
+————————————
+
+十、扩展约束
 
 * 不实现用户登录系统
 * 不实现服务端
@@ -244,7 +287,7 @@ icons/
 
 ————————————
 
-十、完成标准
+十一、完成标准
 
 满足以下条件视为完成：
 
@@ -257,16 +300,19 @@ icons/
 
 ————————————
 
-十一、TODO
+十二、TODO
 
 已完成
 * 创建基础目录结构：src/background、src/content、src/popup、src/options、src/shared、public/icons
 * 添加基础类型定义与消息结构
 * 添加 background、content、popup、options 的基础代码骨架
 * 创建 manifest.json 与 popup/options 基础页面
+* 新增 Vite 构建配置与 TypeScript 基础配置
+* 增加基础 AI 请求与错误通知骨架
+* dist 产物已输出：background.js、content.js、popup/options 相关文件
 
 待办
-* 补齐构建流程（将 src 输出为 background.js、content.js、popup/options 资源）
-* 完成 AI API 调用逻辑与错误处理
-* 完成 popup 与 options 的完整交互与样式
+* 完善 AI API 调用逻辑与错误处理细节
 * 补齐图标资源与悬浮按钮开关配置
+* 校验 manifest.json 的 host_permissions 为真实 API 域名
+* 完成 popup 与 options 的完整交互与样式

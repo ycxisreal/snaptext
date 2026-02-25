@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "Text selection AI operations with popup history.",
   "permissions": ["contextMenus", "storage", "activeTab", "scripting"],
-  "host_permissions": ["https://api.example.com/*"],
+  "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js",
     "type": "module"

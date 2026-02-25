@@ -8,12 +8,18 @@ export interface AIRecord {
   url: string;
   pageTitle: string;
   timestamp: number;
+  usage?: {
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+  };
 }
 
 export interface AIConfig {
   baseUrl: string;
   apiKey: string;
   model: string;
+  temperature: number;
 }
 
 export interface RuntimeMessage {
@@ -21,6 +27,7 @@ export interface RuntimeMessage {
     | "get-selection"
     | "selection-result"
     | "open-popup"
-    | "records-updated";
+    | "records-updated"
+    | "error";
   payload?: unknown;
 }
