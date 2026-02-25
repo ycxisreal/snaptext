@@ -247,7 +247,7 @@ src/background/
 * service worker 入口，负责注册右键菜单、处理菜单点击、调用 AI API、写入 storage、通知 popup 刷新
 
 src/content/
-* 内容脚本入口，负责读取选中文本、注入悬浮按钮、向后台发送“打开 popup”请求
+* 内容脚本入口，负责读取选中文本、注入悬浮按钮（Shadow DOM、悬浮样式）、向后台发送“打开 popup”请求
 
 src/popup/
 * 扩展弹窗页面（Vue3），负责读取记录、展示列表、复制/删除/清空、接收刷新与错误消息

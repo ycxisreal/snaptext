@@ -16,8 +16,8 @@ function registerContextMenus() {
   chrome.contextMenus.removeAll(() => {
     Object.values(MENU_IDS).forEach((id) => {
       const titleMap: Record<ActionType, string> = {
-        summarize: "AI 总结",
-        comment: "AI 评论",
+        summarize: "AI 压缩总结",
+        comment: "AI 发表评论",
         rebut: "AI 反驳",
         expand: "AI 延伸",
       };
@@ -66,6 +66,17 @@ async function clearLastError() {
   await chrome.storage.local.remove(LAST_ERROR_KEY);
 }
 
+// 尝试打开 Popup
+async function openPopupSafe() {
+  try {
+    await chrome.action.openPopup();
+  } catch (error) {
+    const message =
+      error instanceof Error ? `无法打开弹窗：${error.message}` : "无法打开弹窗，请点击扩展图标";
+    await saveLastError(message);
+  }
+}
+
 // 读取 AI 配置
 async function loadConfig(): Promise<AIConfig | null> {
   const stored = await chrome.storage.local.get(CONFIG_KEY);
@@ -89,9 +100,9 @@ function buildPrompt(action: ActionType): string {
     case "summarize":
       return "压缩文本内容，去除不必要的部分，保证文本压缩至精华";
     case "comment":
-      return "以客观的身份为文本做出评论内容";
+      return "以一个网民的身份为文本做出评论内容，不需要长篇大论，而是以真实网民的身份，发表一个评论的内容";
     case "rebut":
-      return "请给出最强反驳逻辑、证据缺口、可验证问题。";
+      return "请对给出的文本做出最强反驳，语气：嘲讽、讽刺、有力、不给予对方反驳的机会，拒绝AI感，像真人一样回复";
     case "expand":
       return "请为文本进行合理的拓展延伸，输出的文字请衔接文本下文。";
     default:
@@ -122,7 +133,7 @@ async function callAI(action: ActionType, inputText: string) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20000);
   const messages = [
-    { role: "system", content: "[总体要求：输出严格禁止markdown格式。]" + buildPrompt(action) },
+    { role: "system", content: "[总体要求：输出严格禁止markdown格式；严禁过多划分段落、标题、序号；严禁输出与要求不相关内容]" + buildPrompt(action) },
     { role: "user", content: inputText },
   ];
   const temperature = Math.min(2, Math.max(0, Number(config.temperature)));
@@ -189,7 +200,7 @@ async function handleMenuClick(info: chrome.contextMenus.OnClickData, tab?: chro
       : await requestSelectedText(tab.id);
   if (!inputText) {
     await saveLastError("未检测到选中文本");
-    chrome.action.openPopup();
+    await openPopupSafe();
     return;
   }
 
@@ -207,7 +218,7 @@ async function handleMenuClick(info: chrome.contextMenus.OnClickData, tab?: chro
     };
     await clearLastError();
     await saveRecord(record);
-    chrome.action.openPopup();
+    await openPopupSafe();
   } catch (error) {
     const message =
       error instanceof Error && error.name === "AbortError"
@@ -216,7 +227,7 @@ async function handleMenuClick(info: chrome.contextMenus.OnClickData, tab?: chro
         ? error.message
         : "未知错误";
     await saveLastError(message);
-    chrome.action.openPopup();
+    await openPopupSafe();
   }
 }
 
@@ -231,6 +242,6 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 // 处理内容脚本请求打开 Popup
 chrome.runtime.onMessage.addListener((message: RuntimeMessage) => {
   if (message.type === "open-popup") {
-    chrome.action.openPopup();
+    void openPopupSafe();
   }
 });

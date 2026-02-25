@@ -8,34 +8,64 @@ function getSelectedText(): string {
   return selection?.toString().trim() ?? "";
 }
 
-// 注入悬浮按钮
+// 注入悬浮按钮（使用 Shadow DOM 防止样式冲突）
 function injectFloatingButton() {
   if (document.getElementById(FLOATING_BUTTON_ID)) return;
-  const button = document.createElement("button");
-  button.id = FLOATING_BUTTON_ID;
-  button.type = "button";
-  button.textContent = "TextOps";
-  button.style.cssText = [
+  const host = document.createElement("div");
+  host.id = FLOATING_BUTTON_ID;
+  host.style.cssText = [
     "position:fixed",
     "right:16px",
     "top:50%",
     "transform:translateY(-50%)",
     "z-index:2147483647",
-    "padding:10px 12px",
-    "border-radius:999px",
-    "border:1px solid #111",
-    "background:#fff",
-    "color:#111",
-    "font-size:12px",
-    "cursor:pointer",
+    "pointer-events:none",
   ].join(";");
 
+  const shadow = host.attachShadow({ mode: "open" });
+  const style = document.createElement("style");
+  style.textContent = `
+    .btn {
+      all: initial;
+      pointer-events: auto;
+      font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: #111;
+      color: #fff;
+      border-radius: 999px;
+      border: 1px solid #111;
+      padding: 10px 14px;
+      font-size: 12px;
+      cursor: pointer;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+      transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+      opacity: 0.9;
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+      opacity: 1;
+    }
+    .btn:active {
+      transform: translateY(0);
+      opacity: 0.85;
+    }
+  `;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "btn";
+  button.textContent = "TextOps";
+  button.setAttribute("aria-label", "打开 TextOps");
+
   // 点击时请求后台打开 Popup
-  button.addEventListener("click", () => {
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     chrome.runtime.sendMessage({ type: "open-popup" } as RuntimeMessage);
   });
 
-  document.documentElement.appendChild(button);
+  shadow.appendChild(style);
+  shadow.appendChild(button);
+  document.documentElement.appendChild(host);
 }
 
 chrome.runtime.onMessage.addListener((message: RuntimeMessage, _sender, sendResponse) => {
@@ -44,4 +74,8 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage, _sender, sendResp
   }
 });
 
-injectFloatingButton();
+if (document.readyState === "loading") {
+  window.addEventListener("DOMContentLoaded", injectFloatingButton, { once: true });
+} else {
+  injectFloatingButton();
+}
