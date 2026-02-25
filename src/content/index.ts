@@ -1,12 +1,30 @@
 import type { RuntimeMessage } from "../shared/types";
 
 const FLOATING_BUTTON_ID = "textops-floating-button";
-const FLOATING_LOADER_ID = "textops-floating-loader";
+let lastSelectionRect: DOMRect | null = null;
 
 // 读取选中文本
 function getSelectedText(): string {
   const selection = window.getSelection();
   return selection?.toString().trim() ?? "";
+}
+
+// 记录最近一次选区位置
+function captureSelectionRect() {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) {
+    lastSelectionRect = null;
+    return;
+  }
+  const range = selection.getRangeAt(0);
+  if (!range || range.collapsed) {
+    lastSelectionRect = null;
+    return;
+  }
+  const rect = range.getBoundingClientRect();
+  if (rect && rect.width > 0 && rect.height > 0) {
+    lastSelectionRect = rect;
+  }
 }
 
 // 注入悬浮按钮（使用 Shadow DOM 防止样式冲突）
@@ -34,7 +52,7 @@ function injectFloatingButton() {
       color: #fff;
       border-radius: 999px;
       border: 1px solid #111;
-      padding: 10px 14px;
+      padding: 6px 14px;
       font-size: 12px;
       cursor: pointer;
       box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
@@ -43,7 +61,7 @@ function injectFloatingButton() {
     }
     .btn.loading {
       cursor: progress;
-      opacity: 0.7;
+      opacity: 0.6;
     }
     .btn:hover {
       transform: translateY(-2px);
@@ -87,55 +105,7 @@ function setButtonLoading(active: boolean) {
 }
 
 // 显示加载指示
-function showLoadingIndicator() {
-  if (document.getElementById(FLOATING_LOADER_ID)) return;
-  const selection = window.getSelection();
-  const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
-  const rect = range ? range.getBoundingClientRect() : null;
-  const host = document.createElement("div");
-  host.id = FLOATING_LOADER_ID;
-  host.style.cssText = [
-    "position:fixed",
-    "z-index:2147483647",
-    "pointer-events:none",
-    "top:0",
-    "left:0",
-  ].join(";");
-
-  const shadow = host.attachShadow({ mode: "open" });
-  const style = document.createElement("style");
-  style.textContent = `
-    .spinner {
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      border: 2px solid rgba(0,0,0,0.2);
-      border-top-color: #111;
-      animation: spin 0.8s linear infinite;
-      background: #fff;
-      box-shadow: 0 6px 16px rgba(0,0,0,0.12);
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-  `;
-  const spinner = document.createElement("div");
-  spinner.className = "spinner";
-  shadow.appendChild(style);
-  shadow.appendChild(spinner);
-  document.documentElement.appendChild(host);
-
-  const left = rect ? rect.right + 6 : window.innerWidth - 60;
-  const top = rect ? rect.top - 6 : window.innerHeight / 2;
-  host.style.left = `${Math.max(8, Math.min(left, window.innerWidth - 24))}px`;
-  host.style.top = `${Math.max(8, Math.min(top, window.innerHeight - 24))}px`;
-}
-
-// 隐藏加载指示
-function hideLoadingIndicator() {
-  const node = document.getElementById(FLOATING_LOADER_ID);
-  if (node) node.remove();
-}
+// 保留选区记录以备后续需求
 
 chrome.runtime.onMessage.addListener((message: RuntimeMessage, _sender, sendResponse) => {
   if (message.type === "get-selection") {
@@ -144,10 +114,8 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage, _sender, sendResp
   if (message.type === "loading") {
     const active = Boolean((message.payload as { active?: boolean } | undefined)?.active);
     if (active) {
-      showLoadingIndicator();
       setButtonLoading(true);
     } else {
-      hideLoadingIndicator();
       setButtonLoading(false);
     }
   }
@@ -158,3 +126,7 @@ if (document.readyState === "loading") {
 } else {
   injectFloatingButton();
 }
+
+document.addEventListener("selectionchange", captureSelectionRect);
+window.addEventListener("mouseup", captureSelectionRect);
+window.addEventListener("keyup", captureSelectionRect);

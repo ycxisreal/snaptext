@@ -299,10 +299,27 @@ onMounted(() => {
   border-radius: 999px;
   cursor: pointer;
   font-size: 12px;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.08s ease, opacity 0.08s ease;
 }
 .danger {
   border-color: #f1c4c4;
   color: #9a1a1a;
+}
+.ghost:hover,
+.danger:hover {
+  background: #f7f7f7;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
+}
+.ghost:active,
+.danger:active {
+  transform: translateY(1px);
+  opacity: 0.85;
+}
+.ghost:disabled,
+.danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 .empty {
   color: #555;

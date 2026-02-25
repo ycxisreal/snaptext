@@ -114,11 +114,11 @@ function normalizeConfig(config: AIConfig): AIConfig {
 function buildPrompt(action: ActionType): string {
   switch (action) {
     case "summarize":
-      return "压缩文本内容，去除不必要的部分，保证文本压缩至精华";
+      return "压缩文本内容，去除不必要的部分，保证文本压缩至精华，确保中心思想与论述的内容不变";
     case "comment":
       return "以一个网民的身份为文本做出评论内容，不需要长篇大论，而是以真实网民的身份，发表一个评论的内容";
     case "rebut":
-      return "请对给出的文本做出最强反驳，语气：嘲讽、讽刺、有力、不给予对方反驳的机会，拒绝AI感，像真人一样回复";
+      return "请对给出的文本做出最强反驳，语气：嘲讽、讽刺、有力、攻击性拉满、不给予对方反驳的机会，拒绝AI感，像真人一样回复";
     case "expand":
       return "请为文本进行合理的拓展延伸，输出的文字请衔接文本下文。根据文本的内容与语气来输出，如：若文本是一个人发表的评论或文章，那么输出也需要是以真人的口气或文风。若文本是一段论述，则也应" +
         "严格按照原文本的风格进行输出";

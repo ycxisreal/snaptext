@@ -112,6 +112,19 @@ onMounted(() => {
   padding: 8px 16px;
   border-radius: 999px;
   cursor: pointer;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, opacity 0.08s ease;
+}
+.primary:hover {
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.18);
+}
+.primary:active {
+  transform: translateY(1px);
+  opacity: 0.9;
+}
+.primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 .form {
   display: grid;
