@@ -51,6 +51,10 @@
           </button>
         </div>
         <button type="button" class="ghost" @click="showAll = true">全部</button>
+        <label class="toggle">
+          <input v-model="extraEnabled" type="checkbox" @change="saveExtraEnabled" />
+          <span>附加信息模式</span>
+        </label>
       </div>
       <article v-if="currentRecord" :key="currentRecord.id" class="card">
         <div class="meta">
@@ -80,6 +84,30 @@
         </div>
       </article>
     </section>
+
+    <div v-if="showExtra" class="modal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2>补充信息</h2>
+          <button type="button" class="ghost" @click="cancelExtra">关闭</button>
+        </div>
+        <div class="modal-body">
+          <p class="hint">请补充额外信息，帮助生成更准确的回复。</p>
+          <textarea
+            v-model.trim="extraText"
+            class="textarea"
+            rows="5"
+            placeholder="请输入补充信息..."
+          ></textarea>
+          <div class="modal-actions">
+            <button type="button" class="ghost" @click="cancelExtra">取消</button>
+            <button type="button" class="primary" @click="submitExtra" :disabled="!extraText">
+              发送
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div v-if="showAll" class="modal">
       <div class="modal-card">
@@ -123,17 +151,23 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import type { AIRecord, RuntimeMessage } from "../shared/types";
+import type { AIRecord, PendingRequest, RuntimeMessage } from "../shared/types";
 
 const RECORDS_KEY = "records";
 const LAST_ERROR_KEY = "last-error";
 const LOADING_KEY = "loading";
+const PENDING_KEY = "pending-request";
+const EXTRA_ENABLED_KEY = "extra-enabled";
 const records = ref<AIRecord[]>([]);
 const errorMessage = ref("");
 const loading = ref(false);
 const currentIndex = ref(0);
 const showAll = ref(false);
 const jumpIndex = ref<number | null>(null);
+const showExtra = ref(false);
+const extraText = ref("");
+const pendingRequest = ref<PendingRequest | null>(null);
+const extraEnabled = ref(false);
 
 // 从 storage 读取记录
 async function loadRecords() {
@@ -159,12 +193,36 @@ async function loadLoading() {
   loading.value = Boolean(payload?.active);
 }
 
+// 从 storage 读取补充请求
+async function loadPendingRequest() {
+  const stored = await chrome.storage.local.get(PENDING_KEY);
+  const pending = stored[PENDING_KEY] as PendingRequest | undefined;
+  pendingRequest.value = pending ?? null;
+  showExtra.value = Boolean(pending);
+  if (!pending) {
+    extraText.value = "";
+  }
+}
+
+// 读取补充信息开关
+async function loadExtraEnabled() {
+  const stored = await chrome.storage.local.get(EXTRA_ENABLED_KEY);
+  extraEnabled.value = Boolean(stored[EXTRA_ENABLED_KEY]?.enabled);
+}
+
+// 保存补充信息开关
+async function saveExtraEnabled() {
+  await chrome.storage.local.set({ [EXTRA_ENABLED_KEY]: { enabled: extraEnabled.value } });
+}
+
 // 刷新记录
 async function reload() {
   errorMessage.value = "";
   await loadRecords();
   await loadLastError();
   await loadLoading();
+  await loadPendingRequest();
+  await loadExtraEnabled();
 }
 
 // 打开设置页
@@ -238,6 +296,27 @@ function nextCard() {
     currentIndex.value === records.value.length - 1 ? 0 : currentIndex.value + 1;
 }
 
+// 提交补充信息
+function submitExtra() {
+  if (!pendingRequest.value) return;
+  if (!extraText.value.trim()) return;
+  chrome.runtime.sendMessage({
+    type: "submit-extra",
+    payload: { id: pendingRequest.value.id, extraText: extraText.value.trim() },
+  } as RuntimeMessage);
+  showExtra.value = false;
+  extraText.value = "";
+  pendingRequest.value = null;
+}
+
+// 取消补充信息
+function cancelExtra() {
+  chrome.runtime.sendMessage({ type: "cancel-extra" } as RuntimeMessage);
+  showExtra.value = false;
+  extraText.value = "";
+  pendingRequest.value = null;
+}
+
 // 跳转到指定卡片
 function jumpToIndex() {
   if (!records.value.length) return;
@@ -258,12 +337,18 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage) => {
   if (message.type === "loading") {
     loading.value = Boolean((message.payload as { active?: boolean } | undefined)?.active);
   }
+  if (message.type === "request-extra") {
+    pendingRequest.value = message.payload as PendingRequest;
+    showExtra.value = true;
+  }
 });
 
 onMounted(() => {
   void loadRecords();
   void loadLastError();
   void loadLoading();
+  void loadPendingRequest();
+  void loadExtraEnabled();
 });
 </script>
 
@@ -271,7 +356,7 @@ onMounted(() => {
 .popup {
   font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
   padding: 16px;
-  width: 380px;
+  width: 420px;
   color: #111;
   background: radial-gradient(circle at top, #f4f1ea, #f7f7f7 45%, #f0f0f0 100%);
 }
@@ -314,6 +399,21 @@ onMounted(() => {
 .actions {
   display: flex;
   gap: 8px;
+  align-items: center;
+}
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #333;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid #e3e3e3;
+  background: #fff;
+}
+.toggle input {
+  accent-color: #111;
 }
 .ghost,
 .danger {
@@ -359,6 +459,11 @@ onMounted(() => {
   margin: 0 0 6px;
   font-size: 16px;
 }
+.hint {
+  margin: 0;
+  color: #666;
+  font-size: 12px;
+}
 .error {
   background: #ffe8e8;
   color: #9a1a1a;
@@ -374,6 +479,7 @@ onMounted(() => {
 }
 .pager {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   font-size: 12px;
@@ -465,7 +571,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 12px;
+  padding: 8px;
   z-index: 2147483647;
 }
 .modal-card {
@@ -490,6 +596,41 @@ onMounted(() => {
   overflow: auto;
   display: grid;
   gap: 12px;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.textarea {
+  width: 90%;
+  border-radius: 10px;
+  border: 1px solid #dcdcdc;
+  padding: 10px;
+  font-size: 12px;
+  resize: vertical;
+}
+.primary {
+  background: #111;
+  color: #fff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, opacity 0.08s ease;
+}
+.primary:hover {
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.12);
+}
+.primary:active {
+  transform: translateY(1px);
+  opacity: 0.9;
+}
+.primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 @keyframes spin {
   to {

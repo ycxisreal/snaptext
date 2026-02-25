@@ -23,6 +23,7 @@ Popup 关闭后，数据必须持久化，下次打开仍可查看。
 2. 用户点击某个菜单项后：
 
 * 获取当前选中的纯文本
+* 若弹窗内“附加信息”开关开启，先提示输入补充信息
 * 发送至 AI API
 * 返回结果
 * 在 Popup 页面展示结果
@@ -39,6 +40,8 @@ Popup 关闭后，数据必须持久化，下次打开仍可查看。
 * 支持删除单条记录
 * 支持清空全部记录
 * 支持复制结果
+* 支持补充信息输入弹窗
+* 支持“附加信息”开关
 
 4. Popup 关闭后：
 
@@ -197,9 +200,11 @@ manifest.json 需包含：
 1. 用户右键点击菜单
 2. background 通过 tabs.sendMessage 请求 content script 获取选中文本
 3. content script 返回文本
-4. background 调用 AI API
-5. background 将结果存入 storage
-6. background 通过 runtime.sendMessage 通知 popup 刷新
+4. background 立即打开 Popup
+5. 若“附加信息”开关开启，Popup 提示输入补充内容并回传
+6. background 调用 AI API
+7. background 将结果存入 storage
+8. background 通过 runtime.sendMessage 通知 popup 刷新
 
 Popup 需要在 mounted 时读取 storage，并监听 onMessage。
 
@@ -244,13 +249,13 @@ dist/（构建产物）
 目录职责说明
 
 src/background/
-* service worker 入口，负责注册右键菜单、处理菜单点击、调用 AI API、写入 storage、通知 popup 刷新，并向页面发送加载状态
+* service worker 入口，负责注册右键菜单、处理菜单点击、补充信息流程、调用 AI API、写入 storage、通知 popup 刷新，并向页面发送加载状态
 
 src/content/
 * 内容脚本入口，负责读取选中文本、注入悬浮按钮（Shadow DOM、悬浮样式）、记录选区位置、接收加载状态并更新悬浮按钮状态、向后台发送“打开 popup”请求
 
 src/popup/
-* 扩展弹窗页面（Vue3），负责读取记录、展示单卡片/弹窗列表、复制/删除/清空、接收刷新/错误/加载状态
+* 扩展弹窗页面（Vue3），负责读取记录、展示单卡片/弹窗列表、补充信息输入、附加信息开关、复制/删除/清空、接收刷新/错误/加载状态
 
 src/options/
 * 设置页（Vue3），负责维护 AI 配置（BaseURL、Key、Model）

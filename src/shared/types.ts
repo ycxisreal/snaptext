@@ -29,6 +29,19 @@ export interface RuntimeMessage {
     | "open-popup"
     | "records-updated"
     | "error"
-    | "loading";
+    | "loading"
+    | "request-extra"
+    | "submit-extra"
+    | "cancel-extra";
   payload?: unknown;
+}
+
+export interface PendingRequest {
+  id: string;
+  action: ActionType;
+  inputText: string;
+  url: string;
+  pageTitle: string;
+  timestamp: number;
+  tabId?: number;
 }

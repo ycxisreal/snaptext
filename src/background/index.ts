@@ -1,30 +1,30 @@
-import type { ActionType, AIConfig, AIRecord, RuntimeMessage } from "../shared/types";
-
-const MENU_IDS: Record<ActionType, ActionType> = {
-  summarize: "summarize",
-  comment: "comment",
-  rebut: "rebut",
-  expand: "expand",
-};
+import type { ActionType, AIConfig, AIRecord, PendingRequest, RuntimeMessage } from "../shared/types";
 
 const RECORDS_KEY = "records";
 const CONFIG_KEY = "ai-config";
 const LAST_ERROR_KEY = "last-error";
 const LOADING_KEY = "loading";
+const PENDING_KEY = "pending-request";
+const EXTRA_ENABLED_KEY = "extra-enabled";
+
+const MENU_ITEMS: Array<{
+  id: ActionType;
+  title: string;
+  action: ActionType;
+}> = [
+  { id: "summarize", title: "AI 压缩总结", action: "summarize" },
+  { id: "comment", title: "AI 发表评论", action: "comment" },
+  { id: "rebut", title: "AI 反驳", action: "rebut" },
+  { id: "expand", title: "AI 延伸", action: "expand" },
+];
 
 // 初始化右键菜单
 function registerContextMenus() {
   chrome.contextMenus.removeAll(() => {
-    Object.values(MENU_IDS).forEach((id) => {
-      const titleMap: Record<ActionType, string> = {
-        summarize: "AI 压缩总结",
-        comment: "AI 发表评论",
-        rebut: "AI 反驳",
-        expand: "AI 延伸",
-      };
+    MENU_ITEMS.forEach((item) => {
       chrome.contextMenus.create({
-        id,
-        title: titleMap[id],
+        id: item.id,
+        title: item.title,
         contexts: ["selection"],
       });
     });
@@ -67,6 +67,29 @@ async function clearLastError() {
   await chrome.storage.local.remove(LAST_ERROR_KEY);
 }
 
+// 写入待补充请求
+async function savePendingRequest(request: PendingRequest) {
+  await chrome.storage.local.set({ [PENDING_KEY]: request });
+  chrome.runtime.sendMessage({ type: "request-extra", payload: request } as RuntimeMessage);
+}
+
+// 清除待补充请求
+async function clearPendingRequest() {
+  await chrome.storage.local.remove(PENDING_KEY);
+}
+
+// 读取待补充请求
+async function loadPendingRequest(): Promise<PendingRequest | null> {
+  const stored = await chrome.storage.local.get(PENDING_KEY);
+  return (stored[PENDING_KEY] as PendingRequest | undefined) ?? null;
+}
+
+// 是否启用补充信息
+async function loadExtraEnabled(): Promise<boolean> {
+  const stored = await chrome.storage.local.get(EXTRA_ENABLED_KEY);
+  return Boolean(stored[EXTRA_ENABLED_KEY]?.enabled);
+}
+
 // 设置加载状态
 async function setLoading(active: boolean, tabId?: number) {
   await chrome.storage.local.set({
@@ -87,9 +110,11 @@ async function openPopupSafe() {
   try {
     await chrome.action.openPopup();
   } catch (error) {
-    const message =
-      error instanceof Error ? `无法打开弹窗：${error.message}` : "无法打开弹窗，请点击扩展图标";
-    await saveLastError(message);
+    const message = error instanceof Error ? error.message : "无法打开弹窗，请点击扩展图标";
+    if (message.includes("Could not find an active browser window")) {
+      return;
+    }
+    await saveLastError(`无法打开弹窗：${message}`);
   }
 }
 
@@ -205,9 +230,17 @@ async function callAI(action: ActionType, inputText: string) {
   };
 }
 
+// 组装补充信息输入
+function buildInputWithExtra(inputText: string, extraText: string) {
+  return `[#用户补充信息：\n${extraText}]\n\n[选中的文本片段：${inputText}]`;
+}
+
 // 处理菜单点击事件
 async function handleMenuClick(info: chrome.contextMenus.OnClickData, tab?: chrome.tabs.Tab) {
-  const action = info.menuItemId as ActionType;
+  const menuId = info.menuItemId as ActionType;
+  const menu = MENU_ITEMS.find((item) => item.id === menuId);
+  if (!menu) return;
+  const action = menu.action;
   if (!tab?.id) return;
 
   // 优先使用 contextMenus 提供的选中文本，避免选区丢失
@@ -222,6 +255,24 @@ async function handleMenuClick(info: chrome.contextMenus.OnClickData, tab?: chro
   }
 
   try {
+    // 先打开弹窗，确保加载状态可见
+    await openPopupSafe();
+    const extraEnabled = await loadExtraEnabled();
+    if (extraEnabled) {
+      const pending: PendingRequest = {
+        id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
+        action,
+        inputText,
+        url: tab.url ?? "",
+        pageTitle: tab.title ?? "",
+        timestamp: Date.now(),
+        tabId: tab.id,
+      };
+      await clearLastError();
+      await savePendingRequest(pending);
+      return;
+    }
+
     await setLoading(true, tab.id);
     const output = await callAI(action, inputText);
     const record: AIRecord = {
@@ -237,7 +288,6 @@ async function handleMenuClick(info: chrome.contextMenus.OnClickData, tab?: chro
     await clearLastError();
     await saveRecord(record);
     await setLoading(false, tab.id);
-    await openPopupSafe();
   } catch (error) {
     const message =
       error instanceof Error && error.name === "AbortError"
@@ -263,5 +313,56 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 chrome.runtime.onMessage.addListener((message: RuntimeMessage) => {
   if (message.type === "open-popup") {
     void openPopupSafe();
+  }
+  if (message.type === "submit-extra") {
+    void (async () => {
+      const payload = message.payload as { id?: string; extraText?: string };
+      const pending = await loadPendingRequest();
+      if (!pending || !payload?.id || pending.id !== payload.id) {
+        await saveLastError("补充信息已过期，请重新操作");
+        await openPopupSafe();
+        return;
+      }
+      if (!payload.extraText || !payload.extraText.trim()) {
+        await saveLastError("补充信息为空");
+        await openPopupSafe();
+        return;
+      }
+      await clearPendingRequest();
+      try {
+        await setLoading(true, pending.tabId);
+        const output = await callAI(
+          pending.action,
+          buildInputWithExtra(pending.inputText, payload.extraText.trim())
+        );
+        const record: AIRecord = {
+          id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
+          action: pending.action,
+          inputText: pending.inputText,
+          outputText: output.content,
+          url: pending.url,
+          pageTitle: pending.pageTitle,
+          timestamp: Date.now(),
+          usage: output.usage,
+        };
+        await clearLastError();
+        await saveRecord(record);
+        await setLoading(false, pending.tabId);
+        await openPopupSafe();
+      } catch (error) {
+        const messageText =
+          error instanceof Error && error.name === "AbortError"
+            ? "请求超时，请稍后再试"
+            : error instanceof Error
+            ? error.message
+            : "未知错误";
+        await saveLastError(messageText);
+        await setLoading(false, pending.tabId);
+        await openPopupSafe();
+      }
+    })();
+  }
+  if (message.type === "cancel-extra") {
+    void clearPendingRequest();
   }
 });
