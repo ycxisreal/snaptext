@@ -1,5 +1,5 @@
 项目名称
-TextOps AI Browser Extension
+SnapText AI Browser Extension
 
 目标
 实现一个基于 Chrome Manifest V3 的浏览器扩展。
@@ -301,18 +301,4 @@ dist/
 ————————————
 
 十二、TODO
-
-已完成
-* 创建基础目录结构：src/background、src/content、src/popup、src/options、src/shared、public/icons
-* 添加基础类型定义与消息结构
-* 添加 background、content、popup、options 的基础代码骨架
-* 创建 manifest.json 与 popup/options 基础页面
-* 新增 Vite 构建配置与 TypeScript 基础配置
-* 增加基础 AI 请求与错误通知骨架
-* dist 产物已输出：background.js、content.js、popup/options 相关文件
-
-待办
-* 完善 AI API 调用逻辑与错误处理细节
-* 补齐图标资源与悬浮按钮开关配置
-* 校验 manifest.json 的 host_permissions 为真实 API 域名
-* 完成 popup 与 options 的完整交互与样式
+1. 后续应该支持在进行处理前，用户可以添加额外的信息作为输入。如：AI评论，用户可以再手动输入评论的侧重点要求等，或是反驳，用户可以要求反驳的内容，指定反驳的点等。

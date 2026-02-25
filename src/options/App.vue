@@ -2,7 +2,7 @@
   <div class="options">
     <header class="header">
       <div>
-        <h1>TextOps 设置</h1>
+        <h1>SnapText 设置</h1>
         <p class="subtitle">配置 API 与对话策略</p>
       </div>
       <button type="button" class="primary" @click="saveConfig">保存</button>

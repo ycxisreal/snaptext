@@ -76,8 +76,8 @@ function injectFloatingButton() {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "btn";
-  button.textContent = "TextOps";
-  button.setAttribute("aria-label", "打开 TextOps");
+  button.textContent = "SnapText";
+  button.setAttribute("aria-label", "打开 SnapText");
 
   // 点击时请求后台打开 Popup
   button.addEventListener("click", (event) => {
@@ -100,7 +100,7 @@ function setButtonLoading(active: boolean) {
     button.textContent = "处理中...";
   } else {
     button.classList.remove("loading");
-    button.textContent = "TextOps";
+    button.textContent = "SnapText";
   }
 }
 

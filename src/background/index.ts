@@ -118,7 +118,7 @@ function buildPrompt(action: ActionType): string {
     case "comment":
       return "以一个网民的身份为文本做出评论内容，不需要长篇大论，而是以真实网民的身份，发表一个评论的内容";
     case "rebut":
-      return "请对给出的文本做出最强反驳，语气：嘲讽、讽刺、有力、攻击性拉满、不给予对方反驳的机会，拒绝AI感，像真人一样回复";
+      return "请对给出的文本做出最强反驳，语气：嘲讽、讽刺、有力、攻击性拉满、不给予对方反驳的机会；但要严格保证是反驳对方观点，不要只做到攻击性拉满但输出的却跟对方的观点一致；拒绝AI感，像真人一样回复";
     case "expand":
       return "请为文本进行合理的拓展延伸，输出的文字请衔接文本下文。根据文本的内容与语气来输出，如：若文本是一个人发表的评论或文章，那么输出也需要是以真人的口气或文风。若文本是一段论述，则也应" +
         "严格按照原文本的风格进行输出";
@@ -150,7 +150,7 @@ async function callAI(action: ActionType, inputText: string) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20000);
   const messages = [
-    { role: "system", content: "[总体要求：输出严格禁止markdown格式；严禁过多划分段落、标题、序号；严禁输出与要求不相关内容]" + buildPrompt(action) },
+    { role: "system", content: "[背景：你是浏览器插件的一部分，用户从网页选中一段文本，然后要求你进行处理或回应。总体要求：输出严格禁止markdown格式；严禁过多划分段落、标题、序号；严禁输出与要求不相关内容]" + buildPrompt(action) },
     { role: "user", content: inputText },
   ];
   const temperature = Math.min(2, Math.max(0, Number(config.temperature)));

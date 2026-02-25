@@ -2,7 +2,7 @@
   <div class="popup">
     <header class="header">
       <div class="title">
-        <h1>TextOps</h1>
+        <h1>SnapText</h1>
         <p>从网页选中文本，右键触发 AI 操作</p>
       </div>
       <div class="actions">
@@ -37,6 +37,19 @@
         <button type="button" class="ghost" @click="nextCard" :disabled="records.length <= 1">
           下一条
         </button>
+        <div class="jump">
+          <input
+            v-model.number="jumpIndex"
+            type="number"
+            min="1"
+            :max="records.length"
+            placeholder="跳转"
+            @keyup.enter="jumpToIndex"
+          />
+          <button type="button" class="ghost" @click="jumpToIndex" :disabled="records.length === 0">
+            跳转
+          </button>
+        </div>
         <button type="button" class="ghost" @click="showAll = true">全部</button>
       </div>
       <article v-if="currentRecord" :key="currentRecord.id" class="card">
@@ -120,6 +133,7 @@ const errorMessage = ref("");
 const loading = ref(false);
 const currentIndex = ref(0);
 const showAll = ref(false);
+const jumpIndex = ref<number | null>(null);
 
 // 从 storage 读取记录
 async function loadRecords() {
@@ -222,6 +236,16 @@ function nextCard() {
   if (records.value.length <= 1) return;
   currentIndex.value =
     currentIndex.value === records.value.length - 1 ? 0 : currentIndex.value + 1;
+}
+
+// 跳转到指定卡片
+function jumpToIndex() {
+  if (!records.value.length) return;
+  const target = Number(jumpIndex.value);
+  if (!Number.isFinite(target)) return;
+  const clamped = Math.min(records.value.length, Math.max(1, Math.floor(target)));
+  currentIndex.value = clamped - 1;
+  jumpIndex.value = clamped;
 }
 
 chrome.runtime.onMessage.addListener((message: RuntimeMessage) => {
@@ -356,6 +380,18 @@ onMounted(() => {
 }
 .pager span {
   color: #555;
+}
+.jump {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.jump input {
+  width: 56px;
+  padding: 5px 6px;
+  border-radius: 8px;
+  border: 1px solid #dcdcdc;
+  font-size: 12px;
 }
 .card {
   border: 1px solid #e5e0d8;
