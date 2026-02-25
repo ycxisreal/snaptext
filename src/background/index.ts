@@ -182,7 +182,11 @@ async function handleMenuClick(info: chrome.contextMenus.OnClickData, tab?: chro
   const action = info.menuItemId as ActionType;
   if (!tab?.id) return;
 
-  const inputText = await requestSelectedText(tab.id);
+  // 优先使用 contextMenus 提供的选中文本，避免选区丢失
+  const inputText =
+    typeof info.selectionText === "string" && info.selectionText.trim()
+      ? info.selectionText.trim()
+      : await requestSelectedText(tab.id);
   if (!inputText) {
     await saveLastError("未检测到选中文本");
     chrome.action.openPopup();
